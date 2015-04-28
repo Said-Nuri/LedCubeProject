@@ -1,0 +1,9 @@
+
+################## Energia #################
+
+Energia klasöründe tiva-c için energia kodları mevcuttur.
+PC den aldığı verileri işleyip led küpleri yakar.
+
+############ SerialCommunication ############
+
+Bu klasörde tiva-c ile seri iletişime geçip veri gönderen kod mevcuttur.
