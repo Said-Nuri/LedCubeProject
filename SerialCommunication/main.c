@@ -12,109 +12,97 @@
 #include <stdlib.h>
 #include <time.h>
 #include "rs232.h"
-#define BAUDRATE 115200
+#define BAUDRATE 19200
 #define DELAY_TIME_US 100000
 #define RECONNECT_TIME 100000
 #define BUFFER_SIZE 4096
 
-int connectLedCuber();
-int sendArrayLedCube(unsigned char m[8][8]);
+int connectLedCube();
+int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]);
 
 int main(void) {
-	unsigned char ledArray[8][8];
-    unsigned char compactArr[8][8][1];
-    unsigned char i, j, k;
+	unsigned char ledArray[8][8][1];
+    unsigned char i, j, k, layer;
 	int portNo;
-
+	int status; 
 	srand(time(NULL));
 
-	if (connectLedCuber() == -1){
+	while( (portNo = connectLedCube()) < 0){
 		printf("Cannot open any port!\n");
 		
 		#ifdef _WIN32
-		system("PAUSE");
+			Sleep(10);
+		#elif __linux
+			usleep(10000);
 		#endif 
 	}
 
 	for (i = 0; i < 8; ++i) {
 		for (j = 0; j < 8; ++j) {
-			ledArray[i][j]= 0x00;
+			ledArray[i][j][0]= 0;
 		}
 	}
 
     for(;;){
 		
 		for(i=0; i<8; ++i){
-			ledArray[7][i] = rand() % 255;
-			ledArray[7][i] &= ~(rand() % 255);
-			ledArray[7][i] &= ~(rand() % 255);
-			ledArray[7][i] &= ~(rand() % 255);
+			ledArray[0][i][0] = 255;
 		}
 
 		/*Her satırı bir aşağı indir*/
-		for (i = 0; i < 7 ; ++i) {
-			for (j = 0; j < 8; ++j) {
-				ledArray[i][j] = ledArray[i+1][j];
-			}
-		}
-		
-		for (i = 0; i < 8; ++i) {
-			for (j = 0; j < 8; ++j) {
-				if (SendByte(portNo,compactArr[i][j][0]) == 1){
-					printf("SendByte Error!\n");
-					
-					#ifdef _WIN32
-					system("PAUSE");
-					#endif			
-					
-					return -1;
-				}
-			}
-		}
-		
-		#ifdef _WIN32
-			Sleep(10);
-		#elif __linux
-			usleep(10000);
-		#endif  
-		
+		//for (layer = 0; layer < 7 ; ++layer) {
+		//	ledArray[layer][j] = ledArray[layer+1][j];	
+		//}
 
-		/* Compress algorithm */
-		/*
-		for (i = 0; i < 8; ++i) {
-			for (j = 0; j < 8; ++j) {
-				for (k = 0; k < 8; ++k) {
-					if(arr[i][j][k]){
-						compactArr[i][j][0] |= 1 << k;
-					}
-					else{
-						compactArr[i][j][0] &= ~(1 << k);
-					}
-				}
-			}
-		}
-		*/
-		
+		status = sendArrayLedCube(portNo, ledArray);
+
+		if(status == -1)
+			return -1;
 	}
 
 	CloseComport(portNo);
 
 	printf("Program finished...\n");
+
+	#ifdef _WIN32
 	system("PAUSE");
+	#endif
     
     return 0;
 }
-int connectLedCuber(){
+int connectLedCube(){
 	char buffer[BUFFER_SIZE];
 	int portNum;
 	int openedFlag = 0;
 
 	for(portNum = 0; portNum < 6 ; ++portNum){
 		if (OpenComport(portNum, BAUDRATE) == 0){
-			printf("Port ttyACM%d opened succesfully", portNum);
+			printf("Port ttyACM%d opened succesfully\n", portNum);
 			return portNum;
 		}
 	}
 	
 	return -1;
+}
+
+int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]){
+
+	int i, j;
+
+	for (i = 0; i < 8; --i) {
+		for (j = 0; j < 8; ++j) {
+
+			if (SendByte(portNo, ledArray[i][j][0]) == 1){
+				perror("SendByte");
+				
+				#ifdef _WIN32
+				system("PAUSE");
+				#endif			
+				
+				return -1;
+			}
+		}
+	}
+
+	return 1;
 }

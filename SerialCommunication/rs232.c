@@ -38,13 +38,13 @@
 #ifdef __linux__   /* Linux */
 
 
-int Cport[25],
+int Cport[22],
     error;
 
 struct termios new_port_settings,
        old_port_settings[22];
 
-char comports[25][13]={"/dev/ttyACM0","/dev/ttyACM1","/dev/ttyACM2","/dev/ttyACM3","/dev/ttyACM4","/dev/ttyACM5","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5",
+char comports[22][13]={"/dev/ttyACM0","/dev/ttyACMA","/dev/ttyS0","/dev/ttyS1","/dev/ttyS2","/dev/ttyS3","/dev/ttyS4","/dev/ttyS5",
                        "/dev/ttyS6","/dev/ttyS7","/dev/ttyS8","/dev/ttyS9","/dev/ttyS10","/dev/ttyS11",
                        "/dev/ttyS12","/dev/ttyS13","/dev/ttyS14","/dev/ttyS15","/dev/ttyUSB0",
                        "/dev/ttyUSB1","/dev/ttyUSB2","/dev/ttyUSB3"};
@@ -112,7 +112,7 @@ int OpenComport(int comport_number, int baudrate)
                    break;
   }
 
-  Cport[comport_number] = open(comports[comport_number], O_RDWR | O_NOCTTY | O_NDELAY);
+  Cport[comport_number] = open(comports[comport_number], O_RDWR | O_NOCTTY );
   if(Cport[comport_number]==-1)
   {
     perror("unable to open comport ");
@@ -227,7 +227,7 @@ char baudr[64];
 
 int OpenComport(int comport_number, int baudrate)
 {
-    
+
     DCB port_settings;
     COMMTIMEOUTS Cptimeouts;
   if((comport_number>15)||(comport_number<0))
@@ -279,11 +279,11 @@ int OpenComport(int comport_number, int baudrate)
 
   if(Cport[comport_number]==INVALID_HANDLE_VALUE)
   {
-    printf("unable to open comport %d\n", comport_number);
+    printf("unable to open comport\n");
     return(1);
   }
 
-  
+
   memset(&port_settings, 0, sizeof(port_settings));  /* clear the new struct  */
   port_settings.DCBlength = sizeof(port_settings);
 
@@ -301,7 +301,7 @@ int OpenComport(int comport_number, int baudrate)
     return(1);
   }
 
-  
+
 
   Cptimeouts.ReadIntervalTimeout         = MAXDWORD;
   Cptimeouts.ReadTotalTimeoutMultiplier  = 0;
@@ -384,5 +384,4 @@ void cprintf(int comport_number, const char *text)  /* sends a string to serial 
 {
   while(*text != 0)   SendByte(comport_number, *(text++));
 }
-
 
