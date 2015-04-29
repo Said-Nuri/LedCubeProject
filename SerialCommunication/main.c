@@ -46,12 +46,14 @@ int main(void) {
 
     for(;;){
 		
+		// Shift the layers
 		for (i = 7; i > 0 ; --i) {
 			for (j = 0; j < 8; ++j) {
 				ledArray[i][j][0] = ledArray[i-1][j][0];
 			}
 		}
 
+		// Generate random numbers to light up 
 		for(i=0; i<8; ++i){
 			ledArray[0][i][0] = rand() % 255;
 			ledArray[0][i][0] &= ~(rand() % 255);
@@ -61,7 +63,7 @@ int main(void) {
 
 		status = sendArrayLedCube(portNo, ledArray);
 
-		usleep(60000);
+		usleep(100000);
 
 
 		if(status == -1)
