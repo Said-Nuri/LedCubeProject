@@ -63,7 +63,7 @@ int main(void) {
 
 		status = sendArrayLedCube(portNo, ledArray);
 
-		usleep(100000);
+		usleep(80000);
 
 
 		if(status == -1)
@@ -122,11 +122,12 @@ int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]){
 				
 				return -1;
 			}
+		//usleep(100);	
 		}
 	}
 
 	
-	usleep(1000);
+	
 
 	// send terminate character
 	if (SendByte(portNo, '-') == 1){

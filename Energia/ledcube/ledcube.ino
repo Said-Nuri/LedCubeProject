@@ -31,7 +31,7 @@ void setup()
   initTimer();
   
   unsigned long ulPeriod;
-  unsigned int Hz = 500;   // frequency in Hz  
+  unsigned int Hz = 2000;   // frequency in Hz  
   ulPeriod = (SysCtlClockGet() / Hz)/ 2;
   ROM_TimerLoadSet(TIMER0_BASE, TIMER_A,ulPeriod -1);
   
@@ -65,7 +65,7 @@ void setup()
   pinMode(PB_1, OUTPUT);
   pinMode(PB_0, OUTPUT);
   
-  initLedCube(255);
+  initLedCube(0);
 }
 
 void loop()
@@ -74,8 +74,56 @@ void loop()
 }
 
 void getData(){
+      
+    int layer, j;   
+    int flag = 0;   
+    unsigned char data;   
         
-}
+    while(1){   
+          
+      while(1){   
+        if(Serial.available()){   
+          data = Serial.read();   
+              
+          if(data == '+'){    
+            Serial.print("Starter arrived\n");    
+            break;            
+          }else{    
+            //Serial.print("waiting for starter...\n");   
+          }   
+          delay(10);    
+        }   
+      }//inner while    
+          
+      for(layer = 0; layer < 8; ++layer){   
+          for(j = 0; j < 8; ++j){   
+              if(Serial.available()){   
+                  data = Serial.read(); 
+                  //Serial.print(layer);
+                  //Serial.print(":");
+                  //Serial.print(j);
+                  //Serial.print("\n");   
+                  ledCubeMatrix[layer][j][0] = data;                
+              }   
+           delay(1);        
+          }     
+      }   
+          
+      if(Serial.available()){   
+        data = Serial.read();   
+            
+        if(data == '-')   
+          Serial.print("Data transfer complated succesfully\n");    
+        else{   
+          Serial.print("Terminate character could not received: ");
+          Serial.print(data);
+          Serial.print("\n");   
+        }   
+      }   
+    } //outer while   
+        
+                              
+ }
 
 void initLedCube(unsigned char value){
   
@@ -122,7 +170,7 @@ void showLedCubeMatrixLayer(){
         digitalWrite(PA_5, ((ledCubeMatrix[layer][col][0] & 2) == 2) ? HIGH : LOW);
         digitalWrite(PA_4, ((ledCubeMatrix[layer][col][0] & 1) == 1) ? HIGH : LOW);
         
-      	
+        
         // Select column set
         selectColumn(col);
   }
@@ -157,4 +205,3 @@ void selectColumn(unsigned char col){
     col /= 2;
     digitalWrite(PE_2, col%2 );    
 }
-
