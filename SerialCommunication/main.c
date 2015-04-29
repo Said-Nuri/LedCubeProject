@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "rs232.h"
-#define BAUDRATE 19200
+#define BAUDRATE 115200
 #define DELAY_TIME_US 100000
 #define RECONNECT_TIME 100000
 #define BUFFER_SIZE 4096
@@ -22,7 +22,7 @@ int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]);
 
 int main(void) {
 	unsigned char ledArray[8][8][1];
-    unsigned char i, j, k, layer;
+    unsigned char i, j, k =0, layer;
 	int portNo;
 	int status; 
 	srand(time(NULL));
@@ -31,12 +31,13 @@ int main(void) {
 		printf("Cannot open any port!\n");
 		
 		#ifdef _WIN32
-			Sleep(10);
+			Sleep(1000);
 		#elif __linux
-			usleep(10000);
+			usleep(1000000);
 		#endif 
 	}
 
+	// Clear array
 	for (i = 0; i < 8; ++i) {
 		for (j = 0; j < 8; ++j) {
 			ledArray[i][j][0]= 0;
@@ -45,16 +46,23 @@ int main(void) {
 
     for(;;){
 		
-		for(i=0; i<8; ++i){
-			ledArray[0][i][0] = 255;
+		for (i = 7; i > 0 ; --i) {
+			for (j = 0; j < 8; ++j) {
+				ledArray[i][j][0] = ledArray[i-1][j][0];
+			}
 		}
 
-		/*Her satırı bir aşağı indir*/
-		//for (layer = 0; layer < 7 ; ++layer) {
-		//	ledArray[layer][j] = ledArray[layer+1][j];	
-		//}
+		for(i=0; i<8; ++i){
+			ledArray[0][i][0] = rand() % 255;
+			ledArray[0][i][0] &= ~(rand() % 255);
+			ledArray[0][i][0] &= ~(rand() % 255);
+			ledArray[0][i][0] &= ~(rand() % 255);
+		}
 
 		status = sendArrayLedCube(portNo, ledArray);
+
+		usleep(60000);
+
 
 		if(status == -1)
 			return -1;
@@ -89,7 +97,18 @@ int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]){
 
 	int i, j;
 
-	for (i = 0; i < 8; --i) {
+	
+	//send terminate character
+	if (SendByte(portNo, '+') == 1){
+		perror("SendByte");
+	}else{
+		printf("start gönderildi\n");
+	}
+	
+	//usleep(100000);
+	
+
+	for (i = 0; i < 8; ++i) {
 		for (j = 0; j < 8; ++j) {
 
 			if (SendByte(portNo, ledArray[i][j][0]) == 1){
@@ -103,6 +122,19 @@ int sendArrayLedCube(int portNo, unsigned char ledArray[8][8][1]){
 			}
 		}
 	}
+
+	
+	usleep(1000);
+
+	// send terminate character
+	if (SendByte(portNo, '-') == 1){
+		perror("SendByte");
+	}else{
+		printf("terminate gönderildi\n");
+	}
+	
+	//usleep(100000);
+	
 
 	return 1;
 }

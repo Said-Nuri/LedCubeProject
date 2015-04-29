@@ -1,36 +1,42 @@
-  /*
-  int A7 = 10; // 7.sütun  
-  int A6 = 9;  // 6.sütun
-  int A5 = 8;  // 5.sütun
-  int A4 = 7;  // 4.sütun
-  int C7 = 34; // 3.sütun
-  int C6 = 35; // 2.sütun
-  int C5 = 36; // 1.sütun
-  int C4 = 37; // 0.sütun
-  
-  int E0 = 18; // 0. satır seçici
-  int E1 = 27; // 1. satır seçici
-  int E2 = 28; // 2. satır seçici
-  
-  int E3 = 19; // Enable/disable output
- 
-  int B7 = 15; // 0. layer
-  int B6 = 14; // 1. layer
-  int B5 = 2;  // 2. layer
-  int B4 = 7;  // 3. layer
-  int B3 = 38; // 4. layer
-  int B2 = 19; // 5. layer
-  int B1 = 4;  // 6. layer
-  int B0 = 3;  // 7. layer
-  */
+ #include "Energia.h"
+#include "inc/hw_ints.h"
+#include "driverlib/interrupt.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/timer.h"
+
   // ledCubeMatrix[layer][satır][sütun]
-  unsigned char ledCubeMatrix[8][8][8];
+  unsigned char ledCubeMatrix[8][8][1];
   unsigned char incoming;
+
+void initTimer()
+{  
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
+  ROM_TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);   // 32 bits Timer
+  TimerIntRegister(TIMER0_BASE, TIMER_A, Timer0Isr);    // Registering  isr       
+  ROM_TimerEnable(TIMER0_BASE, TIMER_A); 
+  ROM_IntEnable(INT_TIMER0A); 
+  ROM_TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);  
+}
+ 
+void Timer0Isr(void)
+{
+  ROM_TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);  // Clear the timer interrupt
+  digitalWrite(RED_LED, digitalRead(RED_LED) ^ 1);              // toggle LED pin
+  showLedCubeMatrixLayer();
+}
+
   
 void setup()
 {
-  Serial.begin(115200);
+  initTimer();
   
+  unsigned long ulPeriod;
+  unsigned int Hz = 500;   // frequency in Hz  
+  ulPeriod = (SysCtlClockGet() / Hz)/ 2;
+  ROM_TimerLoadSet(TIMER0_BASE, TIMER_A,ulPeriod -1);
+  
+  Serial.begin(115200);
+
   // Setup columns
   pinMode(PA_7, OUTPUT);
   pinMode(PA_6, OUTPUT);
@@ -59,21 +65,16 @@ void setup()
   pinMode(PB_1, OUTPUT);
   pinMode(PB_0, OUTPUT);
   
-  initLedCube(1);
-  
+  initLedCube(255);
 }
 
 void loop()
-{
-    //showLedCubeMatrixLayer();
-    delay(1000);
-    
-    //if(Serial.available() > 0){
-      incoming = Serial.read();
-      Serial.print("I received: ");
-      Serial.println(incoming, DEC);
-    //}
-    
+{   
+    getData();
+}
+
+void getData(){
+        
 }
 
 void initLedCube(unsigned char value){
@@ -87,13 +88,11 @@ void initLedCube(unsigned char value){
 }
 
 void initLayer(unsigned char layer, unsigned char value){
-  unsigned char j,k;
-
-  for(j=0 ; j<8 ; j++){
-    for(k=0 ; k<8 ; k++){
-      ledCubeMatrix[layer][j][k] = value;
+    unsigned char j;
+  
+    for(j=0 ; j<8 ; j++){
+        ledCubeMatrix[layer][j][0] = value;
     }
-  }
 }
 
 void showLedCubeMatrixLayer(){
@@ -113,15 +112,16 @@ void showLedCubeMatrixLayer(){
     setOutputColumn(1); /*Disable output columns*/
   
     for(col=0 ; col<8 ; col++){
-  
-        digitalWrite(PA_7, ledCubeMatrix[layer][col][7] ? HIGH : LOW);
-        digitalWrite(PA_6, ledCubeMatrix[layer][col][6] ? HIGH : LOW);
-        digitalWrite(PA_5, ledCubeMatrix[layer][col][5] ? HIGH : LOW);
-        digitalWrite(PA_4, ledCubeMatrix[layer][col][4] ? HIGH : LOW);
-        digitalWrite(PC_7, ledCubeMatrix[layer][col][3] ? HIGH : LOW);
-        digitalWrite(PC_6, ledCubeMatrix[layer][col][2] ? HIGH : LOW);
-        digitalWrite(PC_5, ledCubeMatrix[layer][col][1] ? HIGH : LOW);
-        digitalWrite(PC_4, ledCubeMatrix[layer][col][0] ? HIGH : LOW);
+        
+        digitalWrite(PC_7, ((ledCubeMatrix[layer][col][0] & 128) == 128) ? HIGH : LOW);
+        digitalWrite(PC_6, ((ledCubeMatrix[layer][col][0] & 64) == 64) ? HIGH : LOW);
+        digitalWrite(PC_5, ((ledCubeMatrix[layer][col][0] & 32) == 32) ? HIGH : LOW);
+        digitalWrite(PC_4, ((ledCubeMatrix[layer][col][0] & 16) == 16) ? HIGH : LOW);
+        digitalWrite(PA_7, ((ledCubeMatrix[layer][col][0] & 8) == 8) ? HIGH : LOW);
+        digitalWrite(PA_6, ((ledCubeMatrix[layer][col][0] & 4) == 4)  ? HIGH : LOW);
+        digitalWrite(PA_5, ((ledCubeMatrix[layer][col][0] & 2) == 2) ? HIGH : LOW);
+        digitalWrite(PA_4, ((ledCubeMatrix[layer][col][0] & 1) == 1) ? HIGH : LOW);
+        
       	
         // Select column set
         selectColumn(col);
@@ -157,20 +157,4 @@ void selectColumn(unsigned char col){
     col /= 2;
     digitalWrite(PE_2, col%2 );    
 }
-/*
-void initTimer() { 
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0); 
-    TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC); 
-    unsigned long ulPeriod = (SysCtlClockGet() / 1000); 
-    TimerLoadSet(TIMER0_BASE, TIMER_A, ulPeriod -1); 
-    IntEnable(INT_TIMER0A);
-    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT); 
-    TimerIntRegister(TIMER0_BASE, TIMER_A, Timer0IntHandler); 
-    TimerEnable(TIMER0_BASE, TIMER_A); 
-    IntMasterEnable();
-}
 
-void Timer0IntHandler() { 
-    TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT); 
-    showLedCubeMatrixLayer();
-}*/

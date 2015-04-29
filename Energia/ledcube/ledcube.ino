@@ -7,7 +7,8 @@
   // ledCubeMatrix[layer][satır][sütun]
   unsigned char ledCubeMatrix[8][8][1];
   unsigned char incoming;
-
+  char terminate = '-'; 
+   
 void initTimer()
 {  
   ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -21,7 +22,6 @@ void initTimer()
 void Timer0Isr(void)
 {
   ROM_TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);  // Clear the timer interrupt
-  digitalWrite(RED_LED, digitalRead(RED_LED) ^ 1);              // toggle LED pin
   showLedCubeMatrixLayer();
 }
 
@@ -65,7 +65,7 @@ void setup()
   pinMode(PB_1, OUTPUT);
   pinMode(PB_0, OUTPUT);
   
-  initLedCube(255);
+  initLedCube(0);
 }
 
 void loop()
@@ -74,7 +74,50 @@ void loop()
 }
 
 void getData(){
+  
+    int layer, j;
+    int flag = 0;
+    unsigned char data;
+    
+    while(1){
+      
+      while(1){
+        if(Serial.available()){
+          data = Serial.read();
+          
+          if(data == '+'){
+            Serial.print("Starter arrived\n");
+            break;        
+          }else{
+            Serial.print("waiting for starter...\n");
+          }
+          
+        }
+      }//inner while
+      
+      for(layer = 0; layer < 8; ++layer){
+          for(j = 0; j < 8; ++j){
+              if(Serial.available()){
+                  data = Serial.read(); 
+                  ledCubeMatrix[layer][j][0] = data;             
+              }        
+          }
+          delay(1); 
+      }
+      
+      if(Serial.available()){
+        data = Serial.read();
         
+        if(data == '-')
+          Serial.print("Data transfer complated succesfully\n");
+        else{
+          Serial.print("Terminate character could not received!!!");
+        }
+      }
+    } //outer while
+    
+        
+       
 }
 
 void initLedCube(unsigned char value){
