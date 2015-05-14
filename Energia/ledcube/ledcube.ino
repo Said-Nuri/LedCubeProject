@@ -3,12 +3,17 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/timer.h"
+#include "driverlib/uart.h"
+
+#define ALL_GPIO_PINS    (GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7)
+#define MS_4_GPIO_PINS   (GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7)
+#define LS_4_GPIO_PINS   (GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3)
 
   // ledCubeMatrix[layer][satır][sütun]
   unsigned char ledCubeMatrix[8][8];
-  unsigned char buffer[8][8];
-  unsigned char incoming;
-
+  unsigned char d1,d2;
+  unsigned char isMaster;
+  
 void initTimer()
 {  
   ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -22,22 +27,25 @@ void initTimer()
 void Timer0Isr(void)
 {
   ROM_TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);  // Clear the timer interrupt
-  digitalWrite(RED_LED, digitalRead(RED_LED) ^ 1);              // toggle LED pin
+  digitalWrite(RED_LED, digitalRead(RED_LED) ^ 1);     // toggle LED pin
   showLedCubeMatrixLayer();
 }
 
-  
 void setup()
 {
+  
   initTimer();
   
   unsigned long ulPeriod;
   unsigned int Hz = 2000;   // frequency in Hz  
   ulPeriod = (SysCtlClockGet() / Hz)/ 2;
   ROM_TimerLoadSet(TIMER0_BASE, TIMER_A,ulPeriod -1);
-  
-  Serial.begin(115200);
 
+
+  Serial.begin(115200);
+  Serial2.begin(115200);
+  Serial5.begin(115200);
+  
   // Setup columns
   pinMode(PA_7, OUTPUT);
   pinMode(PA_6, OUTPUT);
@@ -66,74 +74,88 @@ void setup()
   pinMode(PB_1, OUTPUT);
   pinMode(PB_0, OUTPUT);
   
-  initLedCube(0);
+  initLedCube(0x00);
+  
+  //ledCubeMatrix[0][0] = 0;
 }
 
 void loop()
 {   
-    getData();
+    while(1){
+        d1 = getDataFromSerial();
+        
+        Serial.println(d1);
+        
+        if(d1 == 0xFF){ // reset
+            delay(5); // wait 5 ms
+            
+            if(Serial.available())
+                Serial.read();
+            
+            else if(Serial5.available())
+                Serial5.read();
+    	
+            initLedCube(0x00);
+    	
+            if(isMaster){
+                Serial2.write(0xFF);
+                Serial2.write(0xFF);
+                Serial5.write(0xFF);
+                Serial5.write(0xFF);
+              
+    	        delay(5); // wait 5 ms
+            }
+            
+            continue;
+        }
+        
+        d2 = getDataFromSerial();
+        
+        setOrSendDataToCube(d1,d2);
+    }//outer while
+}
+
+unsigned char getDataFromSerial(){
+
+    while(1){
+
+        //Master
+        if(Serial.available()){
+            isMaster = 1;
+	    return Serial.read();
+        }
+
+        //Slave
+        if(Serial5.available()){
+            isMaster = 0;
+	    return Serial5.read();
+        }
+    }
+}
+
+void setOrSendDataToCube(unsigned char d1, unsigned char d2){
+	
+    if(d1%32 > 15){ /* Data to third cube*/
+        Serial2.write(d1 - 16);
+	Serial2.write(d2);
+    }
+    
+    else if(d1%32 > 7){ /* Data to second cube*/
+        Serial5.write(d1 - 8);
+	Serial5.write(d2);
+    }
+    
+    else{ /* To our cube */
+        ledCubeMatrix[d1/32][d1%32] = d2;
+    }
 }
 
 void getData(){
   		
-    int layer, j;		
-    int flag = 0;		
-    unsigned char data;		
-    		
-    while(1){		
-      		
-      while(1){		
-        if(Serial.available()){		
-          data = Serial.read();		
-          		
-          if(data == '+'){		
-            //Serial.print("Starter arrived\n");		
-            break;        		
-          }else{		
-            //Serial.print("waiting for starter...\n");		
-          }		
-          //delay(10);		
-        }		
-      }//inner while		
-      		
-      for(layer = 0; layer < 8; ++layer){		
-          for(j = 0; j < 8; ++j){		
-              if(Serial.available()){		
-                  data = Serial.read(); 
-                  //Serial.print(layer);
-                  //Serial.print(":");
-                  //Serial.print(j);
-                  //Serial.print("\n");		
-                  buffer[layer][j] = data;             		
-              }   
-           delay(1);     		
-          }			
-      }		
-      		
-      if(Serial.available()){		
-        data = Serial.read();		
-        
-        // check correct data received
-        if(data == '-'){
-          
-          // update ledcube matrix
-          for(layer = 0; layer < 8; ++layer){		
-            for(j = 0; j < 8; ++j){
-              ledCubeMatrix[layer][j] = buffer[layer][j];
-            }
-          } 		
-          
-          //Serial.print("Data transfer complated succesfully\n");		
-        }		 
-        else{		
-          Serial.print("Terminate character could not received: ");
-          Serial.print(data);
-          Serial.print("\n");		
-        }		
-      }		
-    } //outer while		
-    		
-         		               		
+  //if(Serial.available()){		
+      //data = Serial.read();             		
+  //}        		
+  //Serial        	               		
  }
 
 void initLedCube(unsigned char value){
@@ -155,41 +177,34 @@ void initLayer(unsigned char layer, unsigned char value){
 }
 
 void showLedCubeMatrixLayer(){
-    unsigned char col;
-    static unsigned char layer = 0;
+    
+  unsigned char col;
+  static unsigned char layer = 0;
+    
+  GPIOPinWrite(GPIO_PORTB_BASE, ALL_GPIO_PINS, 0); /*Disable transistor array*/
+
+  GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_3, GPIO_PIN_3); /*Disable output*/
   
-    /*Disable Layers*/
-    digitalWrite(PB_0,  LOW);
-    digitalWrite(PB_1,  LOW);
-    digitalWrite(PB_2,  LOW);
-    digitalWrite(PB_3,  LOW);
-    digitalWrite(PB_4,  LOW);
-    digitalWrite(PB_5,  LOW);
-    digitalWrite(PB_6,  LOW);
-    digitalWrite(PB_7,  LOW); 
-  
-    setOutputColumn(1); /*Disable output columns*/
-  
+    
     for(col=0 ; col<8 ; col++){
         
-        digitalWrite(PC_7, ((ledCubeMatrix[layer][col] & 128) == 128) ? HIGH : LOW);
-        digitalWrite(PC_6, ((ledCubeMatrix[layer][col] & 64) == 64) ? HIGH : LOW);
-        digitalWrite(PC_5, ((ledCubeMatrix[layer][col] & 32) == 32) ? HIGH : LOW);
-        digitalWrite(PC_4, ((ledCubeMatrix[layer][col] & 16) == 16) ? HIGH : LOW);
-        digitalWrite(PA_7, ((ledCubeMatrix[layer][col] & 8) == 8) ? HIGH : LOW);
-        digitalWrite(PA_6, ((ledCubeMatrix[layer][col] & 4) == 4)  ? HIGH : LOW);
-        digitalWrite(PA_5, ((ledCubeMatrix[layer][col] & 2) == 2) ? HIGH : LOW);
-        digitalWrite(PA_4, ((ledCubeMatrix[layer][col] & 1) == 1) ? HIGH : LOW);
-        
-      	
+        digitalWrite(PA_7, ((ledCubeMatrix[layer][7-col] & 128) == 128) ? HIGH : LOW);
+        digitalWrite(PA_6, ((ledCubeMatrix[layer][7-col] & 64) == 64) ? HIGH : LOW);
+        digitalWrite(PA_5, ((ledCubeMatrix[layer][7-col] & 32) == 32) ? HIGH : LOW);
+        digitalWrite(PA_4, ((ledCubeMatrix[layer][7-col] & 16) == 16) ? HIGH : LOW);
+        digitalWrite(PC_4, ((ledCubeMatrix[layer][7-col] & 8) == 8) ? HIGH : LOW);
+        digitalWrite(PC_5, ((ledCubeMatrix[layer][7-col] & 4) == 4)  ? HIGH : LOW);
+        digitalWrite(PC_6, ((ledCubeMatrix[layer][7-col] & 2) == 2) ? HIGH : LOW);
+        digitalWrite(PC_7, ((ledCubeMatrix[layer][7-col] & 1) == 1) ? HIGH : LOW);
+              	
         // Select column set
-        selectColumn(col);
-  }
+        GPIOPinWrite(GPIO_PORTE_BASE, (GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2) , col);
+    }
  
     // Select matrix
-    setOutputColumn(0);/*Enable output*/
+    GPIOPinWrite(GPIO_PORTE_BASE, GPIO_PIN_3, 0);/*Enable output*/
     
-    setLayers(layer); /* From top to down*/
+    GPIOPinWrite(GPIO_PORTB_BASE, ALL_GPIO_PINS, GPIO_PIN_0 << layer); /* From top to down*/
     
     layer = (layer+1) % 8;
 }
@@ -210,10 +225,10 @@ void setOutputColumn(unsigned char set){
 }
 
 void selectColumn(unsigned char col){
-    digitalWrite(PE_0, col%2 ); 
+    digitalWrite(PE_0, (col%2 == 1) ? HIGH : LOW ); 
     col /= 2;
-    digitalWrite(PE_1, col%2 ); 
+    digitalWrite(PE_1, (col%2 == 1) ? HIGH : LOW ); 
     col /= 2;
-    digitalWrite(PE_2, col%2 );    
+    digitalWrite(PE_2, (col%2 == 1) ? HIGH : LOW );    
 }
 

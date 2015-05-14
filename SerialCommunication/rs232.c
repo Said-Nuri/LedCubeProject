@@ -217,7 +217,7 @@ int IsCTSEnabled(int comport_number)
 HANDLE Cport[16];
 
 
-char comports[16][10]={"\\\\.\\COM22",  "\\\\.\\COM2",  "\\\\.\\COM3",  "\\\\.\\COM4",
+char comports[16][10]={"\\\\.\\COM1",  "\\\\.\\COM2",  "\\\\.\\COM3",  "\\\\.\\COM4",
                        "\\\\.\\COM5",  "\\\\.\\COM6",  "\\\\.\\COM7",  "\\\\.\\COM8",
                        "\\\\.\\COM9",  "\\\\.\\COM10", "\\\\.\\COM11", "\\\\.\\COM12",
                        "\\\\.\\COM13", "\\\\.\\COM14", "\\\\.\\COM15", "\\\\.\\COM16"};
